@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ipynb_checkpoints/
+.python-version
+.venv/
+venv/
+env/
+
+# Jupyter
+.jupyter/
+
+# Local outputs
+analysis_outputs/
+presentation_addon_assets/
+presentation_extended_assets/
+presentation_final_assets/
+
+# Raw data
+Данные электроэнергии/
+
+# PDFs and rendered artifacts that are usually not needed in code repo
+*.pdf
+
+# Exceptions: keep paper source folder, but not built pdfs by default
+!paper_icdm_kan/
+!paper_icdm_kan/*.tex
+!paper_icdm_kan/*.bib
+
+# Optional notebooks/results can be added manually if needed
+
