@@ -1,58 +1,50 @@
 # KAN Forecasting on Climate and Electricity Data
 
-This repository contains the main code and selected research artifacts for a study on the application of Kolmogorov-Arnold Networks (KAN) to forecasting tasks.
+This repository contains selected materials for a study of Kolmogorov-Arnold Networks (KAN) in forecasting tasks.
 
-The work includes two case studies:
+The repository is focused on two directions:
 
-- climate forecasting on multivariate time series data;
-- short-term electricity price forecasting on a leakage-safe regional panel dataset for the Russian electricity market.
+- climate time series forecasting;
+- electricity forecasting based on Russian regional market data.
 
-## Repository Scope
+## Contents
 
-This GitHub version is intended to contain the main code, notebooks, and paper/presentation sources.
-It is not intended to store the full raw electricity data dump or all generated intermediate artifacts.
+### Climate
 
-## Main Files
+- `itmo_kan_timeseries.ipynb` — main notebook for climate forecasting experiments with KAN and Hybrid KAN.
 
-### Core electricity experiments
+### Electricity
 
-- `russian_electricity_real_kan.py` — leakage-safe baseline electricity forecasting experiment with KAN and Hybrid KAN.
-- `russian_electricity_stronger_kan.py` — strengthened KAN setup with delta target, region embedding, and residual learning.
-- `russian_electricity_panel_analysis.py` — panel construction and exploratory analysis utilities.
+- `russian_electricity_eda.ipynb` — exploratory analysis of the electricity dataset.
+- `russian_electricity_real_kan.ipynb` — leakage-safe electricity forecasting experiment.
+- `russian_electricity_stronger_kan.ipynb` — strengthened KAN setup with improved electricity forecasting results.
 
-### Notebooks
+### Paper
 
-- `russian_electricity_eda.ipynb` — EDA and initial analysis of electricity data.
-- `russian_electricity_real_kan.ipynb` — notebook wrapper for the leakage-safe KAN experiment.
-- `russian_electricity_stronger_kan.ipynb` — notebook wrapper for the strengthened KAN experiment.
-- `itmo_kan_timeseries.ipynb` — climate forecasting experiments in the KAN time-series setup.
-- `diploma_kan_energy_forecasting.ipynb` — additional electricity forecasting notebook.
-- `diploma_kan_ett_forecasting.ipynb` — additional ETT forecasting notebook.
+- `paper_kan/main.tex` — LaTeX draft of the paper.
+- `paper_kan/references.bib` — bibliography.
 
-### Paper and presentation
-
-- `paper_icdm_kan/main.tex` — conference-style LaTeX draft of the paper.
-- `paper_icdm_kan/references.bib` — bibliography for the paper.
-- `generate_energy_slides.py` — script for generating additional electricity slides.
-- `generate_final_presentation.py` — concise presentation generator.
-- `generate_extended_presentation.py` — extended presentation generator preserving the original slide deck and appending the new electricity block.
-
-## Main Results
+## Main Findings
 
 ### Climate case
 
-- The best model in the climate case was `Hybrid KAN`.
-- KAN-based models were useful not only for prediction quality, but also for interpretation through learned phi-functions.
+- The best model in the climate experiments was `Hybrid KAN`.
+- KAN-based models were useful both for forecasting and for interpretation through learned phi-functions.
 
 ### Electricity case
 
-- In the baseline leakage-safe setup, the strongest overall model was `HistGradientBoosting`.
-- After strengthening the KAN formulation, the best KAN-family model became `HybridKANEmbedDelta`.
-- The strengthened KAN setup substantially reduced the gap to the best boosting baseline.
+- In the baseline leakage-safe setup, boosting-based models were stronger than the initial KAN formulations.
+- After strengthening the setup, the best KAN-family model became much more competitive.
+- The final electricity results show that KAN can be useful as an interpretable nonlinear forecasting approach, even when it is not the absolute best baseline overall.
+
+## Notes
+
+- The repository does not include the full raw electricity data dump.
+- Large generated artifacts and local service files are excluded from version control.
 
 ## Dependencies
 
-The main Python environment includes:
+Main environment:
 
 - `numpy`
 - `pandas`
@@ -61,62 +53,9 @@ The main Python environment includes:
 - `scikit-learn`
 - `torch`
 - `jupyter`
-- `Pillow`
-- `PyMuPDF`
 
-See `requirements.txt` for a simple install list.
-
-## Suggested Repository Structure
-
-Public GitHub repository:
-
-- source code and notebooks;
-- paper sources;
-- slide generation scripts;
-- selected lightweight result figures and metric tables;
-- no large raw market dumps unless you explicitly want to publish them.
-
-## What Is Better Not to Upload
-
-Unless you intentionally want an open-data repository, it is better not to upload:
-
-- the full `Данные электроэнергии/` raw folder;
-- generated caches such as `__pycache__/`;
-- bulky presentation render assets;
-- large intermediate CSV files and duplicated exported plots;
-- local PDFs that are not necessary for reproducing the code.
-
-## Reproducibility
-
-The code was developed in Jupyter notebooks and Python scripts.
-The electricity experiments write metrics, prediction tables, and interpretability plots to `analysis_outputs/`.
-
-If raw data are not published, the repository can still be made useful by:
-
-- keeping the processing scripts;
-- documenting the expected input file structure;
-- including selected final result tables and figures;
-- describing how the leakage-safe panel is constructed.
-
-## How to Run
-
-Example:
+Install from:
 
 ```bash
-python russian_electricity_real_kan.py
-python russian_electricity_stronger_kan.py
+pip install -r requirements.txt
 ```
-
-For notebooks:
-
-```bash
-jupyter lab
-```
-
-## Publication Notes
-
-This repository is suitable as:
-
-- a thesis companion repository;
-- a code supplement for a conference submission;
-- a portfolio project showing KAN experiments on real forecasting tasks.
