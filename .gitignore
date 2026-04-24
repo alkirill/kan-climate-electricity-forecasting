@@ -30,9 +30,12 @@ presentation_final_assets/
 *.pdf
 
 # Exceptions: keep paper source folder, but not built pdfs by default
-!paper_icdm_kan/
-!paper_icdm_kan/*.tex
-!paper_icdm_kan/*.bib
+!paper_kan/
+!paper_kan/*.tex
+!paper_kan/*.bib
+
+# Local private notebooks not included in the public repository
+KAN.ipynb
+НИР.ipynb
 
 # Optional notebooks/results can be added manually if needed
-
