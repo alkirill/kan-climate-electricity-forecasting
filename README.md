@@ -35,6 +35,23 @@ This makes KAN especially appealing in forecasting tasks where it is important n
 
 At the same time, the project shows an important nuance: KAN is not a universal winner on every dataset. Its practical usefulness depends on the structure of the problem, the choice of target, the feature representation, and the comparison baseline.
 
+## Project Scheme
+
+```mermaid
+flowchart LR
+    A[Raw data] --> B[Preprocessing and forecasting setup]
+    B --> C1[Climate case]
+    B --> C2[Electricity case]
+    C1 --> D1[KAN / Hybrid KAN / neural baselines]
+    C2 --> D2[Leakage-safe setup and strengthened KAN]
+    D1 --> E[Evaluation]
+    D2 --> E
+    E --> F[Metrics + interpretability]
+    F --> G[Research conclusions]
+```
+
+This scheme reflects the overall project logic: starting from raw data, constructing a correct forecasting setup, comparing model families, and then interpreting both predictive quality and internal model behavior.
+
 ## Repository Structure
 
 ### Climate forecasting
@@ -110,6 +127,13 @@ First, in the baseline leakage-safe setup, strong boosting-based tabular models 
 Second, after strengthening the KAN setup by reformulating the target, improving the representation, and making the architecture more suitable for the task, the best KAN-family model became much more competitive.
 
 So the electricity case shows that KAN can be useful, but only when the problem is formulated in a way that matches the architecture.
+
+## Key Results at a Glance
+
+| Case | Best overall result | Main interpretation |
+|---|---|---|
+| Climate forecasting | `Hybrid KAN` performed best among the compared neural models | KAN-style hybridization works especially well in a clean multivariate time-series setting |
+| Electricity forecasting | boosting-based baselines were strongest overall, but strengthened KAN became much more competitive | KAN is useful when the forecasting setup is carefully adapted to the task |
 
 ## Main Scientific Conclusions
 
