@@ -13,16 +13,16 @@
 \usepackage{array}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta,positioning,shapes.geometric}
+\graphicspath{{../analysis_outputs/}}
 
-\title{Kolmogorov-Arnold Networks for Forecasting:\\
-An Interpretable Comparative Study on Climate and Electricity Data}
+\title{Kolmogorov-Arnold Networks for Forecasting}
 
 \author{
 \IEEEauthorblockN{Kirill Alekhin}
 \IEEEauthorblockA{
 ITMO University\\
 Saint Petersburg, Russia\\
-\texttt{alekkhin.kirill.list.ru}
+\texttt{ksalekhin@gmail.com}
 }
 }
 
@@ -31,11 +31,11 @@ Saint Petersburg, Russia\\
 \maketitle
 
 \begin{abstract}
-This paper presents an extended empirical study of Kolmogorov-Arnold Networks (KAN) and hybrid KAN architectures in forecasting tasks with markedly different structure, data-generating mechanisms, and practical constraints. The first case study addresses multivariate climate time series forecasting on the UCI Air Quality dataset, where KAN-based models are compared with recurrent and feed-forward neural baselines in both standard and robustness-oriented regimes. The second case study focuses on short-term electricity price forecasting on a leakage-safe panel dataset constructed from Russian regional energy market data, where the learning problem is complicated by mixed-frequency inputs, regional heterogeneity, and strict causal alignment requirements. In the baseline electricity setup, strong tabular models outperform direct KAN formulations by a substantial margin. However, after reformulating the target as a next-step price increment, incorporating region embeddings, and introducing residual learning, the strongest KAN-based model approaches the performance of the best boosting baseline much more closely. Across both case studies, the experiments show that the main value of KAN is not universal predictive dominance, but the combination of nonlinear modeling flexibility, architectural modularity, and interpretability through learned channel-wise $\phi$-functions. The paper therefore contributes not only a benchmark-style comparison, but also a problem-design perspective: KAN is most useful when the forecasting task is formulated in a way that matches its inductive bias and when interpretability is treated as a first-class modeling objective rather than as an afterthought.
+This paper presents an extended empirical study of Kolmogorov-Arnold Networks (KAN) and hybrid KAN architectures in forecasting tasks with markedly different structure, data-generating mechanisms, and practical constraints. The first case study addresses multivariate environmental time series forecasting on the UCI Air Quality dataset, where KAN-based models are compared with recurrent and feed-forward neural baselines in standard and robustness-oriented regimes. The second case study focuses on short-term panel forecasting on a leakage-safe dataset constructed from Russian regional market data, where the learning problem is complicated by mixed-frequency inputs, regional heterogeneity, stochastic fluctuations, and strict causal alignment requirements. In the baseline panel setup, strong tabular models outperform direct KAN formulations by a substantial margin. However, after reformulating the target as a next-step first-order difference, incorporating region embeddings, and introducing residual learning, the strongest KAN-based model approaches the performance of the best boosting baseline much more closely. Across both case studies, the experiments show that the main value of KAN is not universal predictive dominance, but the combination of nonlinear modeling flexibility, architectural modularity, and analysis of learned channel-wise $\phi$-functions. The paper therefore contributes not only a benchmark-style comparison, but also a problem-design perspective: KAN is most useful when the forecasting task is formulated in a way that matches its inductive bias and when nonlinear feature-channel analysis is treated as a first-class modeling objective.
 \end{abstract}
 
 \begin{IEEEkeywords}
-Kolmogorov-Arnold Networks, forecasting, time series, panel data, electricity price, climate data, interpretability, hybrid neural models
+Kolmogorov-Arnold Networks, forecasting, time series, panel data, first-order differences, stochastic dynamics, hybrid neural models
 \end{IEEEkeywords}
 
 \section{Introduction}
@@ -107,12 +107,41 @@ where each $x_t \in \mathbb{R}^d$, the task is to predict either the next step o
 \begin{equation}
 Y_t = [x_{t+1}, \dots, x_{t+h}].
 \end{equation}
+Equivalently, a forecasting window can be written as a matrix
+\begin{equation}
+\mathbf{X}_{t,w} =
+\begin{bmatrix}
+x_{t-w+1}^{(1)} & x_{t-w+2}^{(1)} & \cdots & x_t^{(1)} \\
+x_{t-w+1}^{(2)} & x_{t-w+2}^{(2)} & \cdots & x_t^{(2)} \\
+\vdots & \vdots & \ddots & \vdots \\
+x_{t-w+1}^{(d)} & x_{t-w+2}^{(d)} & \cdots & x_t^{(d)}
+\end{bmatrix}
+\in \mathbb{R}^{d \times w}.
+\end{equation}
+This matrix view is important because it makes explicit that the model receives both temporal structure and cross-channel dependencies. In the climate case, the rows correspond to pollutant and meteorological variables. In the panel case, they correspond to price history, load-related variables, calendar encodings, lagged losses, and region-dependent signals.
 
 \textbf{Panel forecasting.} Given observations indexed by time and region, the task is to predict a region-specific target at $t+1$ using lagged values, calendar information, and region-level attributes. This setup combines time dependence with cross-sectional heterogeneity.
+
+For the strengthened panel experiments we use first-order differences:
+\begin{equation}
+\Delta y_{r,t} = y_{r,t+1} - y_{r,t}.
+\end{equation}
+The model predicts $\Delta y_{r,t}$ and the final level forecast is reconstructed as
+\begin{equation}
+\hat{y}_{r,t+1} = y_{r,t} + \widehat{\Delta y}_{r,t}.
+\end{equation}
+This formulation is better aligned with short-term stochastic dynamics, where recent shocks, local increments, and mean-reverting behavior can be easier to learn than absolute levels.
 
 These two formulations were intentionally selected to stress different inductive biases. The multivariate climate task emphasizes temporal coherence and cross-channel dependencies inside a single evolving process. The electricity task emphasizes heterogeneous entities, mixed-frequency predictors, and the need to preserve causality under realistic data availability constraints.
 
 From a modeling perspective, these two formulations imply different notions of difficulty. In the climate task, the main challenge is to learn a compact nonlinear representation of coupled sensor trajectories over time. In the electricity task, the challenge is broader: the model must combine lagged dynamics with entity-specific structure, calendar regularities, and slowly varying exogenous variables while avoiding spurious information flow from the future. This makes the second task less similar to a pure sequence benchmark and more similar to structured industrial forecasting, where data preparation and target definition often determine model quality as much as the learning architecture itself.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{multivariate_series_matrix.png}
+\caption{Example of a multivariate forecasting window represented as a standardized feature-time matrix. This view makes the transition from a single temporal series to a multichannel forecasting object explicit.}
+\label{fig:multivariate_matrix}
+\end{figure}
 
 \subsection{Model Families}
 
@@ -132,6 +161,21 @@ For hybrid KAN models, the forecast is represented as
 \hat{y} = f_{\text{linear}}(x) + f_{\text{KAN}}(x).
 \end{equation}
 This decomposition is useful because it allows the model to explain simple global effects through the linear branch and to capture structured nonlinearities through the KAN branch.
+
+In iterative multi-step forecasting, the one-step model can be reused recursively:
+\begin{equation}
+\hat{x}_{t+k} = F_{\theta}(\hat{x}_{t+k-w}, \ldots, \hat{x}_{t+k-1}), \quad k=1,\ldots,h,
+\end{equation}
+where observed values are used for the initial window and predicted values are fed back for later steps. This iterative scheme is relevant for seasonal and environmental data because errors may accumulate differently across daily, weekly, and annual periodic components.
+
+For seasonal channels, a compact Fourier representation can be written as
+\begin{equation}
+s(t) = a_0 + \sum_{m=1}^{M} \left[
+a_m \sin\left(\frac{2\pi m t}{P}\right) +
+b_m \cos\left(\frac{2\pi m t}{P}\right)
+\right],
+\end{equation}
+where $P$ is a period such as a day, week, or year. This representation motivates the use of cyclical features such as sine and cosine encodings in the panel dataset and helps separate deterministic periodicity from more stochastic residual dynamics.
 
 In the strengthened electricity setup, the residual model can also be written as
 \begin{equation}
@@ -162,6 +206,13 @@ arr/.style={-{Latex[length=2.5mm]}, thick}
 \label{fig:workflow}
 \end{figure}
 
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{fourier_seasonality_components.png}
+\caption{Illustration of seasonal structure as a sum of sine and cosine components. Such encodings are useful when data contain daily, weekly, or annual periodicity.}
+\label{fig:fourier}
+\end{figure}
+
 \subsection{Implementation Notes}
 
 The experiments were implemented in Python using NumPy, pandas, scikit-learn, PyTorch, and Jupyter notebooks for exploratory analysis. For the electricity task, the workflow was organized as a reproducible pipeline with separate stages for panel construction, leakage-safe feature alignment, model training, metric calculation, and interpretability output generation.
@@ -183,6 +234,57 @@ We use four complementary interpretability mechanisms:
 For pure KAN, interpretation is relatively direct because the model consists mostly of nonlinear channel-wise transformations. For hybrid KAN, interpretability becomes partial rather than absolute, since the final forecast combines linear and nonlinear components. We therefore interpret hybrid models as \emph{partially interpretable} rather than fully transparent.
 
 In practice, this interpretability framework answers three distinct questions. First, \emph{which feature groups matter most}? This is addressed by grouped permutation or contribution analysis. Second, \emph{how do important variables affect the response}? This is addressed by the shapes of learned $\phi$-functions. Third, \emph{does the model behave plausibly at the trajectory level}? This is addressed by visually comparing predictions and observations across representative temporal segments. Taken together, these views provide a richer understanding than a single global importance ranking.
+
+\subsection{Formula-Level Description of Learned Channel Functions}
+
+The nonlinear transformations learned by KAN are not only visual artifacts. Each edge function can be written explicitly as a basis expansion:
+\begin{equation}
+\phi_{j,q}(z_j) = \sum_{m=1}^{M} c_{j,q,m} B_m(z_j),
+\end{equation}
+where $z_j$ is a standardized input feature, $B_m(\cdot)$ is a one-dimensional basis function, and $c_{j,q,m}$ are learned coefficients for the transformation from input channel $j$ to hidden unit $q$. Therefore, the contribution of a feature group $G$ can be summarized as
+\begin{equation}
+\Phi_G(x_G) = \sum_{j \in G} \sum_{q} \phi_{j,q}(z_j).
+\end{equation}
+
+For presentation and reporting, the sampled learned $\phi$-functions were also approximated by low-order polynomials:
+\begin{equation}
+\hat{\phi}_{j,q}(z) = a_3 z^3 + a_2 z^2 + a_1 z + a_0.
+\end{equation}
+These polynomial expressions should be interpreted as compact summaries of the learned spline-like functions, not as constraints imposed during training. Table~\ref{tab:phi_formula_summary} gives representative examples for the most important channels.
+
+\begin{table}[t]
+\centering
+\caption{Polynomial summaries of representative learned KAN channel functions}
+\label{tab:phi_formula_summary}
+\small
+\begin{tabular}{llc}
+\toprule
+Channel & Approximate learned function $\hat{\phi}(z)$ & $R^2$ \\
+\midrule
+Current price &
+$-0.0106z^3 + 0.0179z^2 + 0.1462z - 0.0925$ & 0.969 \\
+Price lag 1 &
+$0.0060z^3 - 0.0042z^2 - 0.1149z + 0.0869$ & 0.995 \\
+Hour cosine &
+$0.0041z^3 - 0.0366z^2 - 0.0824z + 0.1197$ & 0.875 \\
+Hybrid current price &
+$0.0119z^3 - 0.0026z^2 - 0.1832z + 0.0477$ & 0.999 \\
+Hybrid sine hour &
+$0.0040z^3 - 0.0392z^2 - 0.0534z + 0.0919$ & 0.859 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+At the feature-group level, the resulting nonlinear correction can therefore be described schematically as
+\begin{equation}
+f_{\text{KAN}}(x) =
+\Phi_{\text{price}}(x_{\text{price lags}}) +
+\Phi_{\text{calendar}}(x_{\sin h},x_{\cos h}) +
+\Phi_{\text{load}}(x_{\text{load lags}}) +
+\Phi_{\text{region}}(e_r) +
+\epsilon_{\theta}.
+\end{equation}
+This expression is useful for thesis presentation because it connects the graphical $\phi$-function interpretation with an explicit formula-level description of the channels.
 
 \subsection{Evaluation Metrics}
 
@@ -214,6 +316,16 @@ The climate case study uses the UCI Air Quality dataset \cite{devito2008airquali
 These variables form a multivariate temporal process with both chemical and meteorological structure. The data are standardized, and sliding windows are used to construct train/test splits without shuffling, preserving temporal order.
 
 The climate case is deliberately useful as a ``controlled'' forecasting environment. Although it is a real dataset rather than a synthetic benchmark, it is still much cleaner than the electricity panel. The variables interact within a single temporal system, the feature semantics are easy to explain, and the target construction is straightforward. This makes the case study well suited for isolating the modeling behavior of KAN and hybrid KAN without immediately entangling the analysis with entity embeddings, leakage-safe joins across frequencies, or highly irregular operational covariates.
+
+The dataset was used in four experimental variants:
+\begin{itemize}
+    \item \textbf{Full}: the cleaned multivariate series with standard chronological splitting;
+    \item \textbf{Missing}: the same series with additional missing observations to test robustness;
+    \item \textbf{Noise}: additive perturbations to emulate sensor uncertainty and stochastic measurement error;
+    \item \textbf{Small}: reduced training size to test behavior under limited data.
+\end{itemize}
+
+These variants were selected because environmental data often contain seasonal and annual regularities, but also random measurement fluctuations. Therefore, the experiments deliberately combine periodic structure with stochastic degradation scenarios.
 
 \subsection{Preprocessing}
 
@@ -287,7 +399,7 @@ The robustness results are important for two reasons. First, they show that the 
 
 The pattern across conditions is arguably more informative than the absolute scores. If a model remains near the top across missingness, noise, and smaller training subsets, this suggests that its inductive bias is not narrowly tuned to a single data regime. Such stability is especially relevant for sensor-driven applications, where measurement failures and short calibration intervals are common. From that perspective, Hybrid KAN appears not only accurate but also practically resilient.
 
-\subsection{Interpretability on Climate Data}
+\subsection{Analysis of Learned Nonlinear Effects}
 
 The climate task is especially convenient for KAN interpretation. The learned $\phi$-functions can be visualized directly for selected input-output pairs, which helps reveal whether the model relies on monotonic, oscillatory, or saturating nonlinear transformations. In our experiments, the $\phi$-function plots showed that different output variables were associated with noticeably different input-response patterns, indicating that the network was not simply learning a generic global transformation.
 
@@ -374,6 +486,7 @@ Table~\ref{tab:elec_base} presents the results of the first leakage-safe electri
 \centering
 \caption{Electricity forecasting: baseline leakage-safe setup}
 \label{tab:elec_base}
+\small
 \begin{tabular}{lccc}
 \toprule
 Model & RMSE & MAE & $R^2$ \\
@@ -404,29 +517,38 @@ This transformation reduces level effects and makes the problem closer to local 
 
 \textbf{2) Region embedding.} Instead of only treating the region as a sparse categorical variable, we represent each region with a trainable embedding vector. This makes it easier for the model to learn region-specific offsets and latent structure.
 
-\textbf{3) Residual learning.} We use a Ridge baseline to explain the main linear component and then train KAN to model the remaining residual signal. This is particularly appealing because it allows KAN to focus on nonlinear effects rather than on the full target from scratch.
+\textbf{3) Residual learning.} We use a baseline model to explain the main component and then train KAN to model the remaining residual signal. In the first strengthened experiment, Ridge was used as the base model. In the advanced residual experiment, the base component was replaced by a stronger HistGradientBoosting model and the KAN-style spline branch was trained as a nonlinear calibration layer on the validation segment. This is particularly appealing because it allows KAN to focus on nonlinear residual effects rather than on the full target from scratch.
 
 These three changes are coherent rather than ad hoc. The delta target reduces level complexity, the region embedding introduces a compact representation of cross-sectional identity, and the residual design narrows the functional burden placed on the nonlinear component. Together, they redefine the role of KAN from universal predictor to specialized nonlinear corrector. This reframing is one of the central methodological insights of the paper.
 
 \begin{figure}[t]
 \centering
+\resizebox{0.95\textwidth}{!}{%
 \begin{tikzpicture}[
-node distance=1.5cm,
-box/.style={draw, rounded corners, align=center, minimum width=2.9cm, minimum height=0.95cm},
+node distance=1.15cm and 1.35cm,
+box/.style={draw, rounded corners, align=center, minimum width=3.3cm, minimum height=0.95cm},
+smallbox/.style={draw, rounded corners, align=center, minimum width=2.8cm, minimum height=0.82cm},
 arr/.style={-{Latex[length=2.5mm]}, thick}
 ]
-\node[box, fill=blue!8] (lags) {Lagged price\\ demand / flow};
-\node[box, fill=green!8, right=of lags] (embed) {Region id\\ embedding};
-\node[box, fill=yellow!12, right=of embed] (kan) {KAN branch\\ nonlinear correction};
-\node[box, fill=orange!12, below=of kan] (ridge) {Ridge branch\\ main linear signal};
-\node[box, fill=red!8, right=of kan] (out) {Final forecast\\ $\hat y = \hat y_{ridge} + \hat y_{KAN}$};
-\draw[arr] (lags) -- (embed);
-\draw[arr] (embed) -- (kan);
-\draw[arr] (embed) |- (ridge);
-\draw[arr] (kan) -- (out);
-\draw[arr] (ridge) -| (out);
+\node[box, fill=blue!8] (x) {Input $x_t$\\ price lags, calendar, load, region, losses};
+\node[box, fill=orange!12, below=of x] (base) {Base model\\ HistGradientBoosting};
+\node[smallbox, fill=orange!8, below=of base] (basepred) {Base forecast\\ $\hat{y}_{base}$};
+\node[smallbox, fill=gray!10, below left=of basepred] (resid) {Residual on validation\\ $r = y - \hat{y}_{base}$};
+\node[box, fill=yellow!12, below right=of basepred] (kan) {KAN-style residual branch\\ spline / $\phi$-functions};
+\node[smallbox, fill=yellow!8, below=of kan] (kanpred) {Residual correction\\ $\hat{y}_{res}$};
+\node[box, fill=red!8, below=2.1cm of basepred] (out) {Final forecast\\ $\hat{y} = \hat{y}_{base} + \hat{y}_{res}$};
+
+\draw[arr] (x) -- (base);
+\draw[arr] (base) -- (basepred);
+\draw[arr] (basepred) -- (resid);
+\draw[arr] (resid) -- (kan);
+\draw[arr] (x.east) -| (kan.north);
+\draw[arr] (kan) -- (kanpred);
+\draw[arr] (basepred) -- (out);
+\draw[arr] (kanpred) -- (out);
 \end{tikzpicture}
-\caption{Schematic view of the strengthened electricity forecasting design. The tabular linear branch captures the main signal, while the KAN branch models structured nonlinear corrections conditioned on lagged features and regional context.}
+}
+\caption{Advanced residual hybrid KAN architecture. A strong boosting model captures the main one-step dynamics, while the KAN-style branch learns a nonlinear residual correction through interpretable spline-based channel functions.}
 \label{fig:elec_scheme}
 \end{figure}
 
@@ -438,20 +560,22 @@ The strengthened setup substantially improved KAN-family performance, as shown i
 \centering
 \caption{Electricity forecasting: strengthened KAN setup}
 \label{tab:elec_strong}
+\small
 \begin{tabular}{lccc}
 \toprule
 Model & RMSE & MAE & $R^2$ \\
 \midrule
-HGBDelta & 102.56 & 55.27 & 0.943 \\
+AdvancedResidualHybridKAN & 99.96 & 55.95 & 0.945 \\
+HGBDeltaStrong & 101.41 & 53.51 & 0.944 \\
 HybridKANEmbedDelta & 107.57 & 61.15 & 0.937 \\
 ResidualRidgeKAN & 108.56 & 60.81 & 0.936 \\
-KANEmbedDelta & 115.17 & 69.88 & 0.928 \\
-RidgeDelta & 116.30 & 69.39 & 0.926 \\
+KANApproxDelta & 109.33 & 65.09 & 0.935 \\
+RidgeDelta & 115.74 & 71.03 & 0.927 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The strongest KAN-based model became HybridKANEmbedDelta with RMSE 107.57, reducing the gap to the best boosting baseline to approximately 5 RMSE points. This is a dramatic improvement compared to the original Hybrid KAN result of RMSE 181.23.
+The strongest KAN-related model became AdvancedResidualHybridKAN with RMSE 99.96. This model combines a strong delta-target boosting baseline with a KAN-style residual calibration branch. It improves over the previous best boosting-only result and represents a substantial improvement compared to the original Hybrid KAN result of RMSE 181.23.
 
 The importance of this result goes beyond the absolute value of the metric. The strengthened KAN models do not merely improve slightly; they recover a large portion of the performance gap created by the naive formulation. This indicates that model quality in applied forecasting depends heavily on how the prediction target, feature representation, and architectural decomposition interact. In this case, the strengthened design makes KAN meaningfully competitive in a regime where its raw version was clearly misaligned with the task.
 
@@ -463,12 +587,13 @@ To emphasize the scale of the improvement, Table~\ref{tab:improvement} compares 
 \centering
 \caption{Improvement of KAN-family models on electricity data}
 \label{tab:improvement}
+\small
 \begin{tabular}{lcc}
 \toprule
 Model family & Original RMSE & Strengthened RMSE \\
 \midrule
-KAN $\rightarrow$ KANEmbedDelta & 149.51 & 115.17 \\
-Hybrid KAN $\rightarrow$ HybridKANEmbedDelta & 181.23 & 107.57 \\
+KAN $\rightarrow$ KANApproxDelta & 149.51 & 109.33 \\
+Hybrid KAN $\rightarrow$ AdvancedResidualHybridKAN & 181.23 & 99.96 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -477,7 +602,7 @@ This result is important for the overall narrative of the paper. It shows that K
 
 Equally importantly, the improvement is interpretable at the modeling level. Each change in the strengthened setup has a concrete rationale, and the combined gain is consistent with those rationales. The better performance is therefore not best understood as accidental hyperparameter luck, but as evidence that KAN can become substantially more effective when its representational role is narrowed and clarified.
 
-\subsection{Interpretability on Electricity Data}
+\subsection{Analysis of Learned Nonlinear Effects}
 
 Interpretability remains a major reason to study KAN in the electricity setting. In our experiments, the strongest KAN-related importance patterns consistently involved:
 \begin{itemize}
@@ -493,6 +618,13 @@ At the same time, it is important to state that interpretability differs between
 Nevertheless, even partial interpretability is valuable. In the strengthened hybrid setting, we can still inspect which inputs dominate the nonlinear correction branch, which channels contribute most to final prediction quality, and whether the learned $\phi$-functions behave in a smooth and plausible way. This is substantially more informative than treating the model as a fully opaque predictor.
 
 From an application perspective, this matters because electricity-market forecasting is often embedded in broader analytical workflows. Researchers and practitioners may want to know not only whether the forecast is accurate, but also whether recent prices, load-related indicators, and calendar variables contribute in a stable and intuitively defensible way. KAN does not solve interpretability completely in this setting, but it does provide a more structured entry point into model inspection than many alternative nonlinear architectures.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\textwidth]{electricity_channel_correlations.png}
+\caption{Mutual correlations between major panel forecasting channels. The panel task contains strong persistence, cross-channel dependence, and stochastic residual variation.}
+\label{fig:channel_corr}
+\end{figure}
 
 \section{Discussion}
 
